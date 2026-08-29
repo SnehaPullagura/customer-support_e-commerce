@@ -164,3 +164,53 @@ class RoutingService:
             decision_reason=decision_reason,
             matched_rule_id=matched_rule.id if matched_rule else None,
         )
+
+    @staticmethod
+    def calculate_agent_affinity_score(
+        agent_skills: List[str],
+        required_skills: List[str],
+        current_active: int,
+        max_active: int,
+        csat: float = 5.0,
+    ) -> float:
+        """
+        Calculate composite agent affinity score (0.0 - 100.0) combining:
+        - 50% Skill Match Coverage
+        - 30% Spare Capacity Availability
+        - 20% Agent Historical CSAT Rating (normalized 0-5 -> 0-1)
+        """
+        # 1. Skill Coverage
+        if not required_skills:
+            skill_score = 1.0
+        else:
+            agent_set = {s.upper() for s in agent_skills}
+            matched_skills = sum(1 for rs in required_skills if rs.upper() in agent_set)
+            skill_score = matched_skills / len(required_skills)
+
+        # 2. Spare Capacity
+        capacity_ratio = max(0.0, 1.0 - (current_active / max(1, max_active)))
+
+        # 3. CSAT Score (0-5 scale normalized)
+        csat_ratio = min(1.0, max(0.0, csat / 5.0))
+
+        composite = (skill_score * 50.0) + (capacity_ratio * 30.0) + (csat_ratio * 20.0)
+        return round(composite, 2)
+
+    @staticmethod
+    def rank_candidate_agents(agents: List[dict], required_skills: List[str]) -> List[dict]:
+        """Rank candidates in descending order of calculated affinity scores."""
+        scored = []
+        for a in agents:
+            score = RoutingService.calculate_agent_affinity_score(
+                agent_skills=a.get("skills", []),
+                required_skills=required_skills,
+                current_active=a.get("current_active_cases", 0),
+                max_active=a.get("max_active_cases", 10),
+                csat=a.get("csat_score", 5.0),
+            )
+            entry = dict(a)
+            entry["affinity_score"] = score
+            scored.append(entry)
+
+        scored.sort(key=lambda x: x["affinity_score"], reverse=True)
+        return scored
