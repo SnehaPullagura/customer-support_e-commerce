@@ -64,6 +64,12 @@ class IdempotencyGuard:
             if record.status == "IN_PROGRESS":
                 raise IdempotencyConflictError(key)
             elif record.status == "COMPLETED":
+                # Check for payload mutation / mismatch
+                if record.request_hash != request_hash:
+                    from app.core.exceptions import ValidationError
+                    raise ValidationError(
+                        f"Idempotency key '{key}' was previously executed with a different request payload."
+                    )
                 # Return cached response
                 return True, {
                     "status_code": record.response_status_code or 200,
