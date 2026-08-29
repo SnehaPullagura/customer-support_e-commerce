@@ -1,0 +1,21 @@
+{
+  "name": "ecommerce-customer-support-platform-monorepo",
+  "version": "1.0.0",
+  "description": "Enterprise Omnichannel Customer Support and Resolution Platform",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "start:frontend": "cd frontend && npm start",
+    "lint:frontend": "cd frontend && npm run lint",
+    "test:backend": "python -m pytest backend/tests -v",
+    "seed:db": "python data/seeds/seed_data.py"
+  },
+  "keywords": [
+    "customer-support",
+    "ecommerce",
+    "resolution-management",
+    "playbooks",
+    "vector-rag"
+  ]
+}
