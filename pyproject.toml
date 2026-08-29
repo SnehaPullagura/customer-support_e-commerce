@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ecommerce-customer-support"
+version = "1.0.0"
+description = "Enterprise E-Commerce Customer Support & Resolution Management Platform"
+authors = [{ name = "Support Platform Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "sqlalchemy>=2.0.36",
+    "asyncpg>=0.30.0",
+    "aiosqlite>=0.20.0",
+    "redis>=5.2.0",
+    "pyjwt[crypto]>=2.10.0",
+    "bcrypt>=4.2.0",
+    "python-multipart>=0.0.17",
+    "httpx>=0.28.0",
+    "websockets>=13.1",
+    "jinja2>=3.1.4",
+    "email-validator>=2.2.0",
+    "scikit-learn>=1.5.0",
+    "prometheus-client>=0.21.0"
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --asyncio-mode=auto"
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311', 'py312', 'py313']
+
+[tool.isort]
+profile = "black"
+line_length = 100
