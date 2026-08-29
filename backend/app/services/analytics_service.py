@@ -20,6 +20,8 @@ from app.schemas.analytics import (
 )
 
 
+from sqlalchemy.orm import selectinload
+
 class AnalyticsService:
     @staticmethod
     async def get_operational_metrics(
@@ -93,7 +95,7 @@ class AnalyticsService:
 
     @staticmethod
     async def get_agent_performances(session: AsyncSession) -> List[AgentPerformanceResponse]:
-        agents = await session.scalars(select(Agent).order_by(Agent.display_name))
+        agents = await session.scalars(select(Agent).options(selectinload(Agent.team)).order_by(Agent.display_name))
         results = []
         for ag in agents.all():
             results.append(
