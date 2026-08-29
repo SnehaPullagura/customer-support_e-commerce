@@ -244,3 +244,66 @@ class SLAService:
 
         await session.commit()
         return {"evaluated": len(all_trackers), "warnings": warnings_count, "breaches": breaches_count}
+
+    @staticmethod
+    def calculate_sla_status(due_at: datetime, created_at: datetime) -> dict:
+        """Calculate elapsed percentage and assign real-time SLA health status tier."""
+        now = datetime.now(timezone.utc)
+        due_utc = due_at.replace(tzinfo=timezone.utc) if due_at.tzinfo is None else due_at
+        created_utc = created_at.replace(tzinfo=timezone.utc) if created_at.tzinfo is None else created_at
+
+        total_duration = max(1.0, (due_utc - created_utc).total_seconds())
+        elapsed = (now - created_utc).total_seconds()
+        percent_elapsed = max(0.0, round((elapsed / total_duration) * 100.0, 1))
+
+        if now > due_utc:
+            status = "BREACHED"
+        elif percent_elapsed >= 90.0:
+            status = "CRITICAL"
+        elif percent_elapsed >= 70.0:
+            status = "WARNING"
+        else:
+            status = "HEALTHY"
+
+        remaining_seconds = max(0, int((due_utc - now).total_seconds()))
+        return {
+            "status": status,
+            "percent_elapsed": percent_elapsed,
+            "remaining_seconds": remaining_seconds,
+            "remaining_minutes": round(remaining_seconds / 60.0, 1),
+            "is_breached": now > due_utc,
+        }
+
+    @staticmethod
+    def calculate_business_hours_deadline(
+        start_time: datetime, duration_hours: float, work_start_hour: int = 9, work_end_hour: int = 17
+    ) -> datetime:
+        """Calculate SLA due date respecting Monday-Friday work hours and skipping weekends."""
+        curr = start_time.replace(tzinfo=timezone.utc) if start_time.tzinfo is None else start_time
+        remaining_hours = duration_hours
+
+        while remaining_hours > 0:
+            # If weekend (Saturday=5, Sunday=6), fast-forward to Monday start
+            if curr.weekday() >= 5:
+                curr = curr.replace(hour=work_start_hour, minute=0, second=0) + timedelta(days=(7 - curr.weekday()))
+                continue
+
+            # If before work hours, shift to start of day
+            if curr.hour < work_start_hour:
+                curr = curr.replace(hour=work_start_hour, minute=0, second=0)
+
+            # If after work hours, shift to next day start
+            if curr.hour >= work_end_hour:
+                curr = (curr + timedelta(days=1)).replace(hour=work_start_hour, minute=0, second=0)
+                continue
+
+            # Available hours in current workday
+            available_today = work_end_hour - curr.hour - (curr.minute / 60.0)
+            if remaining_hours <= available_today:
+                curr += timedelta(hours=remaining_hours)
+                remaining_hours = 0
+            else:
+                remaining_hours -= available_today
+                curr = (curr + timedelta(days=1)).replace(hour=work_start_hour, minute=0, second=0)
+
+        return curr
