@@ -133,6 +133,54 @@ class RefundsService:
         return refund_req
 
     @staticmethod
+    def calculate_store_credit_bonus(amount_cents: int, bonus_percentage: float = 10.0) -> dict:
+        """Calculate store credit refund alternative with an incentive retention bonus."""
+        bonus_cents = int(round(amount_cents * (bonus_percentage / 100.0)))
+        total_credit_cents = amount_cents + bonus_cents
+        return {
+            "original_amount_cents": amount_cents,
+            "bonus_percentage": bonus_percentage,
+            "bonus_cents": bonus_cents,
+            "total_store_credit_cents": total_credit_cents,
+            "store_credit_display": f"${(total_credit_cents / 100):.2f}",
+        }
+
+    @staticmethod
+    def allocate_partial_refund(order_total_cents: int, line_items: list) -> dict:
+        """Calculate itemized line item refund totals and apportioned tax."""
+        total_refund_cents = 0
+        allocated_items = []
+        for item in line_items:
+            unit_price = item.get("unit_price_cents", 0)
+            quantity = item.get("quantity", 1)
+            tax_rate = item.get("tax_rate", 0.0)
+
+            subtotal = unit_price * quantity
+            tax_amount = int(round(subtotal * tax_rate))
+            item_total = subtotal + tax_amount
+            total_refund_cents += item_total
+
+            allocated_items.append({
+                "product_id": item.get("product_id"),
+                "quantity": quantity,
+                "subtotal_cents": subtotal,
+                "tax_cents": tax_amount,
+                "item_total_cents": item_total,
+            })
+
+        if total_refund_cents > order_total_cents:
+            raise ValidationError(
+                f"Requested refund amount ({total_refund_cents} cents) exceeds order maximum ({order_total_cents} cents)."
+            )
+
+        return {
+            "order_total_cents": order_total_cents,
+            "total_refund_cents": total_refund_cents,
+            "allocated_items": allocated_items,
+            "remaining_order_balance_cents": order_total_cents - total_refund_cents,
+        }
+
+    @staticmethod
     async def get_refund(session: AsyncSession, refund_id: str) -> RefundRequest:
         req = await session.scalar(
             select(RefundRequest)
