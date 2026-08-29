@@ -89,6 +89,36 @@ class ReturnsService:
         return ret
 
     @staticmethod
+    def validate_return_eligibility(order_date: datetime, max_days: int = 30) -> dict:
+        """Verify if an order is within the allowed return policy window."""
+        now = datetime.now(timezone.utc)
+        if order_date.tzinfo is None:
+            order_date = order_date.replace(tzinfo=timezone.utc)
+
+        days_elapsed = (now - order_date).total_seconds() / 86400.0
+        is_eligible = days_elapsed <= max_days
+        return {
+            "is_eligible": is_eligible,
+            "days_elapsed": round(days_elapsed, 1),
+            "max_allowed_days": max_days,
+            "remaining_days": max(0.0, round(max_days - days_elapsed, 1)),
+        }
+
+    @staticmethod
+    def calculate_restocking_fee(total_amount: float, item_condition: str) -> float:
+        """Calculate restocking fee deduction based on item condition."""
+        condition_upper = (item_condition or "BRAND_NEW").upper()
+        fee_rates = {
+            "BRAND_NEW": 0.0,
+            "OPEN_BOX": 0.10,        # 10% restock fee
+            "LIGHTLY_USED": 0.15,    # 15% restock fee
+            "DAMAGED": 0.30,         # 30% restock fee
+            "MISSING_PARTS": 0.40,   # 40% restock fee
+        }
+        rate = fee_rates.get(condition_upper, 0.0)
+        return round(total_amount * rate, 2)
+
+    @staticmethod
     async def get_return(session: AsyncSession, return_id: str) -> ReturnRequest:
         ret = await session.scalar(
             select(ReturnRequest)
